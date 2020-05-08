@@ -35,7 +35,7 @@ class Captcha{
             }
         })
 
-        console.log(r)
+        console.log('captcha pending...')
         if(r.status !== 'ready') return undefined;
 
         this.tasks.set(taskID, r.solution.text)

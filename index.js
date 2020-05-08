@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
-
+const fs = require('fs');
 let { Captcha } = require('./captcha');
+const request = require('request-promise');
 
 Array.prototype.random = function () {
     return this[Math.floor((Math.random()*this.length))];
@@ -49,24 +50,27 @@ console.log(token);
     return token;
 }
 
+
+
 async function confirmCaptcha(page){
     let taskID = await captcha.createTask();
     let a = setInterval(async() => {
         let r = await captcha.getTaskResult(taskID);
         
         if(r) {
+
+            console.log('captcha solved!')
             let key = r;
-            console.log(require('util').inspect(key))
-        
-            await page.evaluate('console.log("hello world")')
-            await page.evaluate(`console.log("${key}")`)
+            
             await page.evaluate(`___grecaptcha_cfg.clients[0].J.J.callback('${key}');`);
             setTimeout(async() => {
                 let token = await getToken(page);
-                console.log(token);
+                if(!token){
+                    console.log('Invalid captcha solution');
 
-                let b = page.browser;
-                b.close();
+                    return;
+                }
+                console.log(token);
             }, 15000)
             
             clearInterval(a);
@@ -76,9 +80,41 @@ async function confirmCaptcha(page){
     }, 2000);
         
 };
-(async () => {
 
-    const browser = await puppeteer.launch({headless: false, args: ['']});//--proxy-server=http://87.76.10.119:53281
+async function writeFile(content){
+    await fs.appendFileSync('accounts.txt', content);
+}
+
+async function randomProxy(){
+    let proxy1 = await fs.readFileSync('proxies.txt');
+    let proxy2 = proxy1.toString().split('\r\n');
+    return proxy2.random();
+}
+
+async function checkProxy(proxy){
+    try{
+
+    
+    let stime = new Date() / 1000;
+    let r = await request('https://discord.com/api/auth/register', {proxy: proxy});
+    let etime = new Date() / 1000;
+
+    if(r.response.statusCode !== 404) return undefined;
+    return etime - stime;
+    }catch(e){
+        return false;
+    }
+}
+
+(async () => {
+    let proxy = await randomProxy();
+    let check = await checkProxy(proxy);
+    if(!check){
+        console.log('invalid proxy!');
+        process.exit(0);
+    }
+
+    const browser = await puppeteer.launch({headless: false, args: [`--proxy-server=${proxy}`]});//--proxy-server=http://87.76.10.119:53281
     const page = (await browser.pages())[0];
     page.goto('https://discord.com/register');
     try {
@@ -97,10 +133,19 @@ async function confirmCaptcha(page){
             setTimeout(async() => {
                 let element = await page.$('.authBox-hW6HRx')
     
-                console.log(element)
+                
                 if(element){
+                    console.log('требуется решение каптчи');
                     await confirmCaptcha(page); 
+                    let token = await getToken(page);
+
+                    
                 }else{
+                    let token = await getToken(page);
+
+                    console.log(`Аккаунт сохранен, ${token}:${email}:${password}`)
+                    await writeFile(`${token}:${email}:${password}`)
+                    
                     console.log(await getToken(page));
                 }
 
