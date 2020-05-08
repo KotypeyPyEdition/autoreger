@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+const config = require('./config');
 let { Captcha } = require('./captcha');
 const request = require('request-promise');
 
@@ -28,7 +29,7 @@ async function getElement(page, element){
     console.log(yt);
     return yt;
 }
-let captchaKey = process.env.cKEY;
+let captchaKey = config.cKEY;
 let captcha = new Captcha(captchaKey);
 async function getToken(page){
  
@@ -40,11 +41,7 @@ document.body.appendChild(iframe);
 iframe.contentWindow.localStorage.token;    
 `)
 await page.evaluate(`
-iframe = document.createElement('iframe');
-iframe.src = 'about:blank';
-document.body.appendChild(iframe);
-let token = iframe.contentWindow.localStorage.token;    
-console.log(token);
+console.log(iframe.contentWindow.localStorage.token);
 `)
     console.log(token);
     return token;
@@ -67,10 +64,15 @@ async function confirmCaptcha(page){
                 let token = await getToken(page);
                 if(!token){
                     console.log('Invalid captcha solution');
-
+                    await page.browser().close()
                     return;
                 }
+
+                token = token.replace('"', '')
+                console.log(`Аккаунт сохранен, ${token}:${email}:${password}`)
+                await writeFile(`${token}:${email}:${password}\n`)
                 console.log(token);
+                await page.browser().close();
             }, 15000)
             
             clearInterval(a);
@@ -107,53 +109,55 @@ async function checkProxy(proxy){
 }
 
 (async () => {
-    let proxy = await randomProxy();
+    /*let proxy = await randomProxy();
     let check = await checkProxy(proxy);
     if(!check){
         console.log('invalid proxy!');
         process.exit(0);
-    }
+    }*/
 
-    const browser = await puppeteer.launch({headless: false, args: [`--proxy-server=${proxy}`]});//--proxy-server=http://87.76.10.119:53281
+    const browser = await puppeteer.launch({headless: true, args: [``]});//--proxy-server=${proxy}
     const page = (await browser.pages())[0];
     page.goto('https://discord.com/register');
     try {
     setTimeout(async() => {
         
             page.setViewport({ width: 360, height: 720});
-            let email = `${randomText(15)}${mails.random()}`;
-            let password = randomText(16)
+            global.email = `${randomText(15)}${mails.random()}`;
+            global.password = randomText(16)
             await page.type('input[name=email]', email)
             await page.type('input[name=username]', 'я люблю майнкрафт')
             await page.type('input[name=password]', password);
             acc.push(`${email}:${password}`);
             console.log(acc)
             await page.click('button.button-3k0cO7.button-38aScr.lookFilled-1Gx00P.colorBrand-3pXr91.sizeLarge-1vSeWK.fullWidth-1orjjo.grow-q77ONN')
-    
-            setTimeout(async() => {
+
+
+            let token;
+            let abc = setTimeout(async function aaa(){
                 let element = await page.$('.authBox-hW6HRx')
     
                 
                 if(element){
                     console.log('требуется решение каптчи');
                     await confirmCaptcha(page); 
-                    let token = await getToken(page);
-
+       
+                    token = await getToken(page);
                     
                 }else{
-                    let token = await getToken(page);
+                    token = await getToken(page);
 
                     console.log(`Аккаунт сохранен, ${token}:${email}:${password}`)
-                    await writeFile(`${token}:${email}:${password}`)
+                    await writeFile(`${token}:${email}:${password}`);
                     
-                    console.log(await getToken(page));
+                    await browser.close();
                 }
 
     
             }, 10000)
 
 
-        }, 25000);
+        }, 30000);
         }catch(e){
             console.log(e.stack);
             console.log('proxy huita, закрываю браузер');
