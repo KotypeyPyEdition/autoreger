@@ -68,9 +68,9 @@ async function confirmCaptcha(page){
                     return;
                 }
 
-                token = token.replace('"', '')
-                console.log(`Аккаунт сохранен, ${token}:${email}:${password}`)
-                await writeFile(`${token}:${email}:${password}\n`)
+                token = token.replace("\"", '')
+                console.log(`Аккаунт сохранен, ${token}:${email}:${password}`);
+                await writeFileToken(token)
                 console.log(token);
                 await page.browser().close();
             }, 15000)
@@ -87,8 +87,18 @@ async function writeFile(content){
     await fs.appendFileSync('accounts.txt', content);
 }
 
+async function writeFileToken(content){
+    await fs.appendFileSync('tokens.txt', content);
+}
+
 async function randomProxy(){
     let proxy1 = await fs.readFileSync('proxies.txt');
+    let proxy2 = proxy1.toString().split('\r\n');
+    return proxy2.random();
+}
+
+async function randomnick(){
+    let proxy1 = await fs.readFileSync('nicknames.txt');
     let proxy2 = proxy1.toString().split('\r\n');
     return proxy2.random();
 }
@@ -116,7 +126,7 @@ async function checkProxy(proxy){
         process.exit(0);
     }*/
 
-    const browser = await puppeteer.launch({headless: true, args: [``]});//--proxy-server=${proxy}
+    const browser = await puppeteer.launch({headless: false, args: [``]});//--proxy-server=${proxy}
     const page = (await browser.pages())[0];
     page.goto('https://discord.com/register');
     try {
@@ -124,9 +134,10 @@ async function checkProxy(proxy){
         
             page.setViewport({ width: 360, height: 720});
             global.email = `${randomText(15)}${mails.random()}`;
-            global.password = randomText(16)
+            global.password = randomText(16);
+            global.nickname = await randomnick();
             await page.type('input[name=email]', email)
-            await page.type('input[name=username]', 'я люблю майнкрафт')
+            await page.type('input[name=username]', nickname)
             await page.type('input[name=password]', password);
             acc.push(`${email}:${password}`);
             console.log(acc)
@@ -148,6 +159,7 @@ async function checkProxy(proxy){
                     token = await getToken(page);
 
                     console.log(`Аккаунт сохранен, ${token}:${email}:${password}`)
+                    token = token.replace("\"", '')
                     await writeFile(`${token}:${email}:${password}`);
                     
                     await browser.close();
